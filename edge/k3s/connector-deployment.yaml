@@ -1,0 +1,58 @@
+# One Deployment per connector on the edge gateway. Config comes from GitOps (Argo CD / Fleet).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bms-tower-a-config
+  namespace: omnilink-edge
+data:
+  connector.yaml: |
+    # rendered from the asset registry: GET /v1/connectors/bms-tower-a/config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bms-tower-a-buffer
+  namespace: omnilink-edge
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: { requests: { storage: 20Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bms-tower-a
+  namespace: omnilink-edge
+  labels: { app.kubernetes.io/part-of: omnilink, omnilink/layer: connectivity }
+spec:
+  replicas: 1                     # connectors are single-writer per device set
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: bms-tower-a } }
+  template:
+    metadata:
+      labels: { app: bms-tower-a }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9108" }
+    spec:
+      hostNetwork: true           # BACnet/IP broadcasts (Who-Is) need the OT interface
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001 }
+      containers:
+        - name: connector
+          image: registry.omnilink.local/omnilink/connector:1.0.0
+          args: ["--config", "/etc/omnilink/connector.yaml"]
+          env:
+            - { name: OMNILINK_UPLINK, value: mqtt }
+            - { name: OMNILINK_MQTT_HOST, value: core-mqtt.omnilink.example }
+            - { name: OMNILINK_BUFFER_PATH, value: /var/lib/omnilink/buffer.db }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          securityContext: { readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          livenessProbe: { httpGet: { path: /metrics, port: 9108 }, periodSeconds: 30 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/omnilink }
+            - { name: buffer, mountPath: /var/lib/omnilink }
+            - { name: certs, mountPath: /etc/omnilink/certs, readOnly: true }
+      volumes:
+        - { name: config, configMap: { name: bms-tower-a-config } }
+        - { name: buffer, persistentVolumeClaim: { claimName: bms-tower-a-buffer } }
+        - { name: certs, secret: { secretName: gateway-mtls } }

@@ -1,0 +1,34 @@
+groups:
+  - name: omnilink-connectivity
+    rules:
+      - alert: ConnectorBufferGrowing
+        expr: deriv(omnilink_connector_buffer_depth[10m]) > 0 and omnilink_connector_buffer_depth > 1000
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Connector {{ $labels.connector }} is buffering — uplink to core degraded" }
+      - alert: ConnectorErrors
+        expr: rate(omnilink_connector_errors_total[5m]) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Connector {{ $labels.connector }} errors at {{ $value | humanize }}/s ({{ $labels.stage }})" }
+  - name: omnilink-pipeline
+    rules:
+      - alert: KafkaConsumerLag
+        expr: sum by (consumergroup) (kafka_consumergroup_lag) > 100000
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Consumer group {{ $labels.consumergroup }} lag {{ $value }}" }
+  - name: omnilink-api
+    rules:
+      - alert: ApiErrorRate
+        expr: |
+          sum by (service) (rate(omnilink_http_requests_total{status=~"5.."}[5m]))
+            / sum by (service) (rate(omnilink_http_requests_total[5m])) > 0.01
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "{{ $labels.service }} 5xx above 1%" }
+      - alert: ApiLatencyP95
+        expr: histogram_quantile(0.95, sum by (service, le) (rate(omnilink_http_request_seconds_bucket[5m]))) > 0.25
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "{{ $labels.service }} p95 latency above 250 ms" }

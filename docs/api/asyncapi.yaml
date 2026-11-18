@@ -1,0 +1,48 @@
+asyncapi: 3.0.0
+info:
+  title: OmniLink event backbone
+  version: 1.0.0
+  description: Canonical topics on Apache Kafka. Payload schemas are generated from libs/omnilink_contracts into contracts/schemas.
+servers:
+  kafka:
+    host: kafka:9092
+    protocol: kafka
+channels:
+  telemetry:
+    address: omnilink.telemetry.v1
+    messages: { TelemetryEvent: { $ref: '#/components/messages/TelemetryEvent' } }
+  telemetryEnriched:
+    address: omnilink.telemetry.enriched.v1
+  events:
+    address: omnilink.events.v1
+    messages: { DeviceEvent: { $ref: '#/components/messages/DeviceEvent' } }
+  health:
+    address: omnilink.health.v1
+    messages: { DeviceHealth: { $ref: '#/components/messages/DeviceHealth' } }
+  ruleHits:
+    address: omnilink.rule-hits.v1
+    messages: { RuleHit: { $ref: '#/components/messages/RuleHit' } }
+  alarms:
+    address: omnilink.alarms.v1
+    messages: { Alarm: { $ref: '#/components/messages/Alarm' } }
+  commands:
+    address: omnilink.commands.v1
+    messages: { Command: { $ref: '#/components/messages/Command' } }
+  commandResults:
+    address: omnilink.command-results.v1
+    messages: { CommandResult: { $ref: '#/components/messages/CommandResult' } }
+  aiSuggestions:
+    address: omnilink.ai-suggestions.v1
+operations:
+  publishTelemetry: { action: send, channel: { $ref: '#/channels/telemetry' } }
+  consumeAlarms: { action: receive, channel: { $ref: '#/channels/alarms' } }
+  sendCommands: { action: send, channel: { $ref: '#/channels/commands' } }
+components:
+  messages:
+    TelemetryEvent: { payload: { $ref: '../../contracts/schemas/TelemetryEvent.json' } }
+    DeviceEvent: { payload: { $ref: '../../contracts/schemas/DeviceEvent.json' } }
+    DeviceHealth: { payload: { $ref: '../../contracts/schemas/DeviceHealth.json' } }
+    RuleHit: { payload: { $ref: '../../contracts/schemas/RuleHit.json' } }
+    Alarm: { payload: { $ref: '../../contracts/schemas/Alarm.json' } }
+    Command: { payload: { $ref: '../../contracts/schemas/Command.json' } }
+    CommandResult: { payload: { $ref: '../../contracts/schemas/CommandResult.json' } }

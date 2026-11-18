@@ -1,0 +1,24 @@
+{
+  "title": "OmniLink — Platform Health",
+  "uid": "omnilink-platform",
+  "schemaVersion": 39,
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    { "type": "stat", "title": "Telemetry msg/s", "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(rate(omnilink_connector_published_total{topic=\"omnilink.telemetry.v1\"}[1m]))" }] },
+    { "type": "stat", "title": "Connectors buffering", "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "count(omnilink_connector_buffer_depth > 0) or vector(0)" }] },
+    { "type": "stat", "title": "API 5xx %", "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "100 * sum(rate(omnilink_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(omnilink_http_requests_total[5m]))" }] },
+    { "type": "stat", "title": "Max consumer lag", "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "max(kafka_consumergroup_lag)" }] },
+    { "type": "timeseries", "title": "Published by connector", "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (connector) (rate(omnilink_connector_published_total[1m]))", "legendFormat": "{{connector}}" }] },
+    { "type": "timeseries", "title": "API p95 latency by service", "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (service, le) (rate(omnilink_http_request_seconds_bucket[5m])))", "legendFormat": "{{service}}" }] },
+    { "type": "timeseries", "title": "Consumer lag by group", "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (consumergroup) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}}" }] },
+    { "type": "timeseries", "title": "Assistant tool calls", "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (tool, outcome) (rate(omnilink_assistant_tool_calls_total[5m]))", "legendFormat": "{{tool}} {{outcome}}" }] }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "HealthStatus": {
+      "enum": [
+        "online",
+        "degraded",
+        "offline"
+      ],
+      "title": "HealthStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.omnilink.local/v1/DeviceHealth.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "connector_id": {
+      "title": "Connector Id",
+      "type": "string"
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "last_seen": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Seen"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "reported_at": {
+      "format": "date-time",
+      "title": "Reported At",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/HealthStatus"
+    },
+    "tenant": {
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant",
+    "device_id",
+    "connector_id",
+    "status"
+  ],
+  "title": "DeviceHealth",
+  "type": "object"
+}

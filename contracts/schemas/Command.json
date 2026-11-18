@@ -1,0 +1,68 @@
+{
+  "$id": "https://schemas.omnilink.local/v1/Command.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "pattern": "^[a-z][a-z0-9_.]{1,63}$",
+      "title": "Action",
+      "type": "string"
+    },
+    "command_id": {
+      "title": "Command Id",
+      "type": "string"
+    },
+    "connector_id": {
+      "title": "Connector Id",
+      "type": "string"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "requested_by": {
+      "title": "Requested By",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tenant": {
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+      "title": "Tenant",
+      "type": "string"
+    },
+    "ttl_s": {
+      "default": 30,
+      "maximum": 3600,
+      "minimum": 1,
+      "title": "Ttl S",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "tenant",
+    "device_id",
+    "connector_id",
+    "action",
+    "requested_by"
+  ],
+  "title": "Command",
+  "type": "object"
+}

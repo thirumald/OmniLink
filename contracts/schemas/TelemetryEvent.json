@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "Quality": {
+      "enum": [
+        "good",
+        "uncertain",
+        "bad"
+      ],
+      "title": "Quality",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.omnilink.local/v1/TelemetryEvent.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attribute": {
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,63}$",
+      "title": "Attribute",
+      "type": "string"
+    },
+    "device_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Device Id",
+      "type": "string"
+    },
+    "entity_id": {
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "entity_type": {
+      "title": "Entity Type",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "ingest_ts": {
+      "format": "date-time",
+      "title": "Ingest Ts",
+      "type": "string"
+    },
+    "point_ref": {
+      "title": "Point Ref",
+      "type": "string"
+    },
+    "protocol": {
+      "title": "Protocol",
+      "type": "string"
+    },
+    "quality": {
+      "$ref": "#/$defs/Quality",
+      "default": "good"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_ts": {
+      "format": "date-time",
+      "title": "Source Ts",
+      "type": "string"
+    },
+    "tags": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "object"
+    },
+    "tenant": {
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+      "title": "Tenant",
+      "type": "string"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      ],
+      "title": "Value"
+    }
+  },
+  "required": [
+    "tenant",
+    "device_id",
+    "entity_id",
+    "entity_type",
+    "attribute",
+    "value",
+    "source_ts",
+    "protocol",
+    "point_ref"
+  ],
+  "title": "TelemetryEvent",
+  "type": "object"
+}

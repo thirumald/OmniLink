@@ -1,0 +1,46 @@
+# Topic catalogue — keep in sync with libs/omnilink_contracts/omnilink_contracts/topics.py
+# (tests/test_contracts.py fails if they diverge)
+defaults:
+  replication_factor: 3          # override with REPLICATION_FACTOR=1 in dev
+  config:
+    min.insync.replicas: "2"
+    compression.type: zstd
+    message.timestamp.type: CreateTime
+
+topics:
+  - name: omnilink.telemetry.v1
+    partitions: 48
+    config: { retention.ms: "604800000" }
+  - name: omnilink.telemetry.enriched.v1
+    partitions: 48
+    config: { retention.ms: "259200000" }
+  - name: omnilink.events.v1
+    partitions: 24
+    config: { retention.ms: "604800000" }
+  - name: omnilink.health.v1
+    partitions: 12
+    config: { cleanup.policy: "compact,delete", retention.ms: "259200000" }
+  - name: omnilink.rule-hits.v1
+    partitions: 12
+    config: { retention.ms: "259200000" }
+  - name: omnilink.alarms.v1
+    partitions: 12
+    config: { retention.ms: "2592000000" }
+  - name: omnilink.commands.v1
+    partitions: 12
+    config: { retention.ms: "86400000" }
+  - name: omnilink.command-results.v1
+    partitions: 12
+    config: { retention.ms: "604800000" }
+  - name: omnilink.cdc.devices.v1
+    partitions: 6
+    config: { cleanup.policy: compact }
+  - name: omnilink.cdc.alarm-rules.v1
+    partitions: 3
+    config: { cleanup.policy: compact }
+  - name: omnilink.ai-suggestions.v1
+    partitions: 6
+    config: { retention.ms: "2592000000" }
+  - name: omnilink.dlq.v1
+    partitions: 6
+    config: { retention.ms: "1209600000" }

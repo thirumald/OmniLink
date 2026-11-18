@@ -1,0 +1,27 @@
+{
+  "name": "omnilink-postgres-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "publication.name": "omnilink_cdc",
+    "slot.name": "omnilink_cdc",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "omnilink_cdc",
+    "database.password": "${file:/opt/secrets/cdc.properties:password}",
+    "database.dbname": "omnilink",
+    "topic.prefix": "pg",
+    "table.include.list": "public.devices,public.alarm_rules,public.sites",
+    "transforms": "unwrap,route",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "pg\\.public\\.(devices|alarm_rules)",
+    "transforms.route.replacement": "omnilink.cdc.$1.v1",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

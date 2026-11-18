@@ -1,0 +1,173 @@
+# APISIX standalone (decoupled, GitOps) configuration. Generated from a template with shared plugin blocks expanded.
+upstreams:
+- id: asset-registry
+  nodes:
+    asset-registry:8001: 1
+  type: roundrobin
+- id: alarm-service
+  nodes:
+    alarm-service:8002: 1
+  type: roundrobin
+- id: command-service
+  nodes:
+    command-service:8003: 1
+  type: roundrobin
+- id: query-api
+  nodes:
+    query-api:8004: 1
+  type: roundrobin
+- id: outbound
+  nodes:
+    outbound:8005: 1
+  type: roundrobin
+- id: http-ingest
+  nodes:
+    http-ingest:8010: 1
+  type: roundrobin
+- id: assistant
+  nodes:
+    assistant:8020: 1
+  type: roundrobin
+  timeout:
+    connect: 5
+    send: 120
+    read: 120
+- id: centrifugo
+  nodes:
+    centrifugo:8000: 1
+  type: roundrobin
+- id: console
+  nodes:
+    console:80: 1
+  type: roundrobin
+routes:
+- id: commands
+  uris:
+  - /v1/devices/*/commands
+  - /v1/commands
+  - /v1/commands/*
+  priority: 10
+  upstream_id: command-service
+  plugins:
+    prometheus: &id001 {}
+    cors: &id002
+      allow_origins: https://console.omnilink.local,http://localhost:4200
+      allow_methods: GET,POST,PUT,DELETE,OPTIONS
+      allow_headers: Authorization,Content-Type
+    proxy-rewrite: &id003
+      headers:
+        remove:
+        - x-user
+        - x-tenant
+        - x-roles
+    openid-connect: &id004
+      discovery: ${{OIDC_ISSUER}}/.well-known/openid-configuration
+      client_id: omnilink-gateway
+      client_secret: ${{OIDC_GATEWAY_SECRET}}
+      bearer_only: true
+      use_jwks: true
+      set_userinfo_header: false
+    limit-count:
+      count: 10
+      time_window: 60
+      key_type: var
+      key: remote_addr
+      rejected_code: 429
+- id: assets
+  uris:
+  - /v1/devices
+  - /v1/devices/*
+  - /v1/entities/*
+  - /v1/connectors/*
+  upstream_id: asset-registry
+  plugins:
+    prometheus: *id001
+    cors: *id002
+    proxy-rewrite: *id003
+    openid-connect: *id004
+- id: alarms
+  uris:
+  - /v1/alarms
+  - /v1/alarms/*
+  - /v1/incidents
+  - /v1/incidents/*
+  upstream_id: alarm-service
+  plugins:
+    prometheus: *id001
+    cors: *id002
+    proxy-rewrite: *id003
+    openid-connect: *id004
+- id: timeseries
+  uris:
+  - /v1/timeseries
+  upstream_id: query-api
+  plugins:
+    prometheus: *id001
+    cors: *id002
+    proxy-rewrite: *id003
+    openid-connect: *id004
+    limit-req:
+      rate: 50
+      burst: 100
+      key: remote_addr
+      rejected_code: 429
+- id: outbound
+  uris:
+  - /v1/notify
+  - /v1/webhooks
+  - /v1/webhooks/*
+  upstream_id: outbound
+  plugins:
+    prometheus: *id001
+    cors: *id002
+    proxy-rewrite: *id003
+    openid-connect: *id004
+- id: ingest
+  uris:
+  - /v1/ingest/*
+  upstream_id: http-ingest
+  plugins:
+    key-auth: {}
+    prometheus: {}
+    limit-count:
+      count: 1000
+      time_window: 1
+      key_type: var
+      key: consumer_name
+      rejected_code: 429
+    request-validation:
+      header_schema:
+        type: object
+        required:
+        - content-type
+- id: assistant
+  uris:
+  - /v1/assistant/*
+  upstream_id: assistant
+  plugins:
+    prometheus: *id001
+    cors: *id002
+    proxy-rewrite: *id003
+    openid-connect: *id004
+    limit-count:
+      count: 30
+      time_window: 60
+      key_type: var
+      key: remote_addr
+      rejected_code: 429
+- id: realtime
+  uris:
+  - /connection/websocket
+  enable_websocket: true
+  upstream_id: centrifugo
+- id: console
+  uris:
+  - /*
+  priority: -10
+  upstream_id: console
+consumers:
+- username: partner_ncm_weather
+  plugins:
+    key-auth:
+      key: ${{PARTNER_NCM_KEY}}
+#END

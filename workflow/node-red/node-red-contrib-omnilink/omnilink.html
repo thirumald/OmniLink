@@ -1,0 +1,72 @@
+<script type="text/javascript">
+  RED.nodes.registerType('omnilink-config', {
+    category: 'config',
+    defaults: { name: { value: '' }, baseUrl: { value: '' }, tokenUrl: { value: '' } },
+    credentials: { clientId: { type: 'text' }, clientSecret: { type: 'password' } },
+    label: function () { return this.name || this.baseUrl || 'OmniLink'; }
+  });
+  const common = { server: { value: '', type: 'omnilink-config' }, name: { value: '' } };
+  const reg = (type, label, extra, icon) => RED.nodes.registerType(type, {
+    category: 'OmniLink', color: '#7FB7DF', inputs: 1, outputs: 1, icon: icon || 'bridge.svg',
+    defaults: Object.assign({}, common, extra),
+    label: function () { return this.name || label; }
+  });
+  reg('omnilink-asset', 'asset lookup', { deviceId: { value: '' }, lat: { value: '' }, lon: { value: '' }, radius: { value: 300 }, deviceType: { value: '' } });
+  reg('omnilink-command', 'device command', { deviceId: { value: '' }, connectorId: { value: '' }, action: { value: 'write_point' }, params: { value: '{}' }, ttl: { value: 30 } });
+  reg('omnilink-alarm', 'alarm action', { alarmId: { value: '' }, alarmAction: { value: 'ack' }, minutes: { value: 60 } });
+  reg('omnilink-query', 'time series', { entityId: { value: '' }, attribute: { value: '' }, from: { value: '-24h' }, to: { value: 'now' }, interval: { value: '1h' } });
+  reg('omnilink-notify', 'notify', { group: { value: 'duty-officers' }, channels: { value: 'push' }, subject: { value: '' } });
+</script>
+
+<script type="text/html" data-template-name="omnilink-config">
+  <div class="form-row"><label>Name</label><input type="text" id="node-config-input-name"></div>
+  <div class="form-row"><label>API URL</label><input type="text" id="node-config-input-baseUrl" placeholder="http://apisix:9080"></div>
+  <div class="form-row"><label>Token URL</label><input type="text" id="node-config-input-tokenUrl"></div>
+  <div class="form-row"><label>Client ID</label><input type="text" id="node-config-input-clientId"></div>
+  <div class="form-row"><label>Secret</label><input type="password" id="node-config-input-clientSecret"></div>
+</script>
+
+<script type="text/html" data-template-name="omnilink-command">
+  <div class="form-row"><label>Server</label><input type="text" id="node-input-server"></div>
+  <div class="form-row"><label>Device</label><input type="text" id="node-input-deviceId"></div>
+  <div class="form-row"><label>Connector</label><input type="text" id="node-input-connectorId"></div>
+  <div class="form-row"><label>Action</label><input type="text" id="node-input-action"></div>
+  <div class="form-row"><label>Params (JSON)</label><input type="text" id="node-input-params"></div>
+  <div class="form-row"><label>TTL (s)</label><input type="text" id="node-input-ttl"></div>
+  <div class="form-row"><label>Name</label><input type="text" id="node-input-name"></div>
+</script>
+<script type="text/html" data-help-name="omnilink-command">
+  <p>Sends a device command through the OmniLink command service. Values in <code>msg.deviceId</code>,
+  <code>msg.connectorId</code>, <code>msg.action</code>, <code>msg.params</code> override the node settings.
+  Commands needing supervisor approval return status <code>pending</code>.</p>
+</script>
+
+<script type="text/html" data-template-name="omnilink-asset">
+  <div class="form-row"><label>Server</label><input type="text" id="node-input-server"></div>
+  <div class="form-row"><label>Device</label><input type="text" id="node-input-deviceId"></div>
+  <div class="form-row"><label>Near lat/lon</label><input type="text" id="node-input-lat" style="width:30%"> <input type="text" id="node-input-lon" style="width:30%"></div>
+  <div class="form-row"><label>Radius (m)</label><input type="text" id="node-input-radius"></div>
+  <div class="form-row"><label>Type</label><input type="text" id="node-input-deviceType"></div>
+</script>
+
+<script type="text/html" data-template-name="omnilink-alarm">
+  <div class="form-row"><label>Server</label><input type="text" id="node-input-server"></div>
+  <div class="form-row"><label>Alarm ID</label><input type="text" id="node-input-alarmId" placeholder="or msg.payload.alarm_id"></div>
+  <div class="form-row"><label>Action</label><select id="node-input-alarmAction"><option>ack</option><option>shelve</option><option>clear</option></select></div>
+  <div class="form-row"><label>Shelve (min)</label><input type="text" id="node-input-minutes"></div>
+</script>
+
+<script type="text/html" data-template-name="omnilink-query">
+  <div class="form-row"><label>Server</label><input type="text" id="node-input-server"></div>
+  <div class="form-row"><label>Entity</label><input type="text" id="node-input-entityId"></div>
+  <div class="form-row"><label>Attribute</label><input type="text" id="node-input-attribute"></div>
+  <div class="form-row"><label>From / To</label><input type="text" id="node-input-from" style="width:30%"> <input type="text" id="node-input-to" style="width:30%"></div>
+  <div class="form-row"><label>Interval</label><select id="node-input-interval"><option>raw</option><option>1m</option><option>1h</option></select></div>
+</script>
+
+<script type="text/html" data-template-name="omnilink-notify">
+  <div class="form-row"><label>Server</label><input type="text" id="node-input-server"></div>
+  <div class="form-row"><label>Group</label><input type="text" id="node-input-group"></div>
+  <div class="form-row"><label>Channels</label><input type="text" id="node-input-channels" placeholder="sms,email,push"></div>
+  <div class="form-row"><label>Subject</label><input type="text" id="node-input-subject"></div>
+</script>

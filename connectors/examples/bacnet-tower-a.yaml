@@ -1,0 +1,25 @@
+connector_id: bms-tower-a
+type: bacnet
+tenant: abudhabi
+poll_interval_s: 10
+settings:
+  address: 10.20.1.10/24
+  device_address: 10.20.1.15
+  device_instance: 1201
+points:
+  - point_ref: analogInput:3:presentValue
+    device_id: ahu-03
+    entity_type: AirHandlingUnit
+    attribute: supplyAirTemperature
+    unit: Cel
+    source_unit: degF
+    deadband: 0.2
+  - point_ref: analogValue:12:presentValue
+    device_id: ahu-03
+    entity_type: AirHandlingUnit
+    attribute: supplyAirSetpoint
+    unit: Cel
+  - point_ref: binaryInput:4:presentValue
+    device_id: ahu-03
+    entity_type: AirHandlingUnit
+    attribute: fanRunning

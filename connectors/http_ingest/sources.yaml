@@ -1,0 +1,18 @@
+# External source mappings for the HTTP ingest API.
+weather-ncm:
+  tenant: abudhabi
+  entity_type: WeatherObserved
+  device_field: station_id
+  ts_field: observed_at
+  fields:
+    temp_c: { attribute: temperature, unit: Cel }
+    rh: { attribute: relativeHumidity, unit: "%" }
+    wind_kmh: { attribute: windSpeed, unit: m/s, scale: 0.2777778 }
+
+parking-operator:
+  tenant: abudhabi
+  entity_type: ParkingSpot
+  device_field: bay_id
+  ts_field: ts
+  fields:
+    occupied: { attribute: occupied }

@@ -1,0 +1,17 @@
+[project]
+name = "omnilink"
+version = "0.1.0"
+description = "OmniLink — open-source smart city unified integration layer"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+extend-exclude = ["frontend", "workflow/node-red"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E731", "B008", "UP007", "E501", "B905", "UP042", "B024"]

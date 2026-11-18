@@ -1,0 +1,15 @@
+{
+  "client": {
+    "token": { "jwks_public_endpoint": "http://keycloak:8080/realms/omnilink/protocol/openid-connect/certs" },
+    "allowed_origins": ["https://console.omnilink.local", "http://localhost:4200"]
+  },
+  "http_api": { "key": "${CENTRIFUGO_API_KEY}" },
+  "channel": {
+    "namespaces": [
+      { "name": "alarms", "history_size": 100, "history_ttl": "24h", "force_recovery": true, "allow_subscribe_for_client": true },
+      { "name": "telemetry", "history_size": 0, "allow_subscribe_for_client": true },
+      { "name": "events", "history_size": 50, "history_ttl": "1h", "allow_subscribe_for_client": true },
+      { "name": "assistant", "history_size": 0, "allow_subscribe_for_client": true }
+    ]
+  }
+}

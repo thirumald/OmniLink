@@ -1,0 +1,42 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: make contracts-check
+      - run: make test
+
+  opa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-policy-agent/setup-opa@v2
+      - run: opa test security/opa -v
+
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: make test-node
+      - working-directory: frontend/console
+        run: npm ci && npx ng build && npx ng test --watch=false
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make compose-check
+      - run: docker build -t omnilink/platform:ci .
+      - uses: aquasecurity/trivy-action@0.28.0
+        with: { image-ref: "omnilink/platform:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "0" }

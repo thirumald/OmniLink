@@ -1,0 +1,13 @@
+{
+  "name": "node-red-contrib-omnilink",
+  "version": "1.0.0",
+  "description": "Node-RED nodes for the OmniLink smart city integration platform",
+  "license": "Apache-2.0",
+  "keywords": ["node-red", "omnilink", "smart-city", "iot"],
+  "node-red": {
+    "version": ">=4.0.0",
+    "nodes": { "omnilink": "omnilink.js" }
+  },
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.js" }
+}

@@ -1,0 +1,18 @@
+connector_id: aq-mqtt
+type: mqtt
+tenant: abudhabi
+settings:
+  host: rabbitmq
+  port: 1883
+  command_topic: city/aq/{device_id}/cmd
+points:
+  - point_ref: "city/aq/001#$.pm25"
+    device_id: aq-001
+    entity_type: AirQualityObserved
+    attribute: pm25
+    unit: ug/m3
+  - point_ref: "city/aq/001#$.no2"
+    device_id: aq-001
+    entity_type: AirQualityObserved
+    attribute: no2
+    unit: ug/m3

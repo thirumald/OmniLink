@@ -1,0 +1,66 @@
+{
+  "realm": "omnilink",
+  "enabled": true,
+  "displayName": "OmniLink",
+  "sslRequired": "external",
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "ar"],
+  "defaultLocale": "en",
+  "otpPolicyType": "totp",
+  "requiredActions": [{ "alias": "CONFIGURE_TOTP", "name": "Configure OTP", "providerId": "CONFIGURE_TOTP", "enabled": true, "defaultAction": true }],
+  "roles": {
+    "realm": [
+      { "name": "viewer", "description": "Read dashboards, devices, alarms" },
+      { "name": "operator", "description": "Acknowledge alarms, send non-critical commands" },
+      { "name": "supervisor", "description": "Shelve/clear alarms, approve critical commands" },
+      { "name": "integrator", "description": "Manage devices, connectors, webhooks, flows" },
+      { "name": "platform-admin", "description": "Everything, all tenants" }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "omnilink-tenant",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false" },
+      "protocolMappers": [
+        { "name": "tenant", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": { "user.attribute": "tenant", "claim.name": "tenant", "jsonType.label": "String",
+                      "access.token.claim": "true", "id.token.claim": "true", "userinfo.token.claim": "true" } },
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "omnilink-api", "access.token.claim": "true" } }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["omnilink-tenant", "roles", "profile", "email"],
+  "clients": [
+    { "clientId": "omnilink-console", "publicClient": true, "standardFlowEnabled": true,
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
+      "redirectUris": ["http://localhost:4200/*", "https://console.omnilink.local/*"],
+      "webOrigins": ["+"] },
+    { "clientId": "omnilink-gateway", "publicClient": false, "bearerOnly": false, "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false, "secret": "${OIDC_GATEWAY_SECRET}" },
+    { "clientId": "omnilink-nodered", "publicClient": false, "standardFlowEnabled": false, "serviceAccountsEnabled": true,
+      "secret": "${NODERED_CLIENT_SECRET}" },
+    { "clientId": "omnilink-temporal", "publicClient": false, "standardFlowEnabled": false, "serviceAccountsEnabled": true,
+      "secret": "${TEMPORAL_CLIENT_SECRET}" },
+    { "clientId": "omnilink-assistant", "publicClient": false, "standardFlowEnabled": false, "serviceAccountsEnabled": true,
+      "secret": "${ASSISTANT_CLIENT_SECRET}" }
+  ],
+  "users": [
+    { "username": "operator.demo", "enabled": true, "email": "operator@omnilink.local",
+      "attributes": { "tenant": ["abudhabi"] }, "realmRoles": ["operator"],
+      "credentials": [{ "type": "password", "value": "ChangeMe!2026", "temporary": true }] },
+    { "username": "supervisor.demo", "enabled": true, "email": "supervisor@omnilink.local",
+      "attributes": { "tenant": ["abudhabi"] }, "realmRoles": ["supervisor"],
+      "credentials": [{ "type": "password", "value": "ChangeMe!2026", "temporary": true }] },
+    { "username": "service-account-omnilink-nodered", "enabled": true, "serviceAccountClientId": "omnilink-nodered",
+      "attributes": { "tenant": ["abudhabi"] }, "realmRoles": ["operator", "integrator"] },
+    { "username": "service-account-omnilink-temporal", "enabled": true, "serviceAccountClientId": "omnilink-temporal",
+      "attributes": { "tenant": ["abudhabi"] }, "realmRoles": ["operator"] },
+    { "username": "service-account-omnilink-assistant", "enabled": true, "serviceAccountClientId": "omnilink-assistant",
+      "attributes": { "tenant": ["abudhabi"] }, "realmRoles": ["viewer"] }
+  ]
+}

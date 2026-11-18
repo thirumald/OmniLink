@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - { name: VictoriaMetrics, type: prometheus, url: http://victoriametrics:8428, isDefault: true }
+  - { name: Loki, type: loki, url: http://loki:3100 }
+  - { name: Tempo, type: tempo, url: http://tempo:3200 }
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    jsonData: { host: clickhouse, port: 9000, protocol: native, defaultDatabase: omnilink, username: omnilink_ro }
+    secureJsonData: { password: "$CLICKHOUSE_RO_PASSWORD" }

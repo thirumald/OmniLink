@@ -1,0 +1,261 @@
+# OmniLink development / pilot stack. Start layer by layer with profiles:
+#   docker compose --profile backbone up -d                 # Layer 1
+#   docker compose --profile backbone --profile storage up -d
+#   docker compose --profile all up -d                      # everything except GPU
+# Production runs on Kubernetes (deploy/k8s); this file is for dev, demos and small pilots.
+name: omnilink
+
+x-py: &py
+  build: { context: ../.., dockerfile: Dockerfile }
+  image: omnilink/platform:dev
+  restart: unless-stopped
+  env_file: .env
+  environment: &pyenv
+    KAFKA_BOOTSTRAP: kafka:9092
+    OIDC_ISSUER: http://keycloak:8080/realms/omnilink
+    OIDC_AUDIENCE: omnilink-api
+
+services:
+  # ---------------- Layer 1: event backbone ----------------
+  kafka:
+    image: apache/kafka:3.9.0
+    profiles: [backbone, all]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports: ["29092:29092"]
+    volumes: [kafka:/var/lib/kafka/data]
+  topics:
+    <<: *py
+    profiles: [backbone, all]
+    restart: "no"
+    depends_on: [kafka]
+    environment: { <<: *pyenv, REPLICATION_FACTOR: "1" }
+    command: ["python", "backbone/kafka/create_topics.py"]
+    volumes: [../../backbone:/app/backbone:ro]
+  apicurio:
+    image: apicurio/apicurio-registry:3.0.0
+    profiles: [backbone, all]
+    ports: ["8085:8080"]
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.0.0
+    profiles: [backbone, all]
+    environment: { KAFKA_CLUSTERS_0_NAME: omnilink, KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092 }
+    ports: ["8086:8080"]
+
+  # ---------------- Layer 2/3: connectivity + edge uplink ----------------
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    profiles: [connectivity, all]
+    ports: ["1883:1883", "15672:15672"]
+    volumes: [./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro]
+  uplink-bridge:
+    <<: *py
+    profiles: [connectivity, all]
+    depends_on: [kafka, rabbitmq]
+    environment: { <<: *pyenv, MQTT_HOST: rabbitmq, MQTT_PORT: "1883" }
+    command: ["python", "edge/uplink_bridge.py"]
+  http-ingest:
+    <<: *py
+    profiles: [connectivity, all]
+    depends_on: [kafka]
+    environment: { <<: *pyenv, OMNILINK_SERVE: "1", OMNILINK_SOURCES: connectors/http_ingest/sources.yaml }
+    command: ["uvicorn", "http_ingest.app:app", "--host", "0.0.0.0", "--port", "8010"]
+  connector-aq:
+    <<: *py
+    profiles: [connectivity, all]
+    depends_on: [kafka, rabbitmq]
+    command: ["python", "-m", "omnilink_sdk.runner", "--config", "connectors/examples/mqtt-air-quality.yaml"]
+
+  # ---------------- Layer 4: storage ----------------
+  postgres:
+    image: postgis/postgis:16-3.4
+    profiles: [storage, all]
+    environment: { POSTGRES_DB: omnilink, POSTGRES_USER: omnilink, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}" }
+    command: ["postgres", "-c", "wal_level=logical"]
+    ports: ["5432:5432"]
+    volumes: [pg:/var/lib/postgresql/data, ../../storage/postgres/migrations:/docker-entrypoint-initdb.d:ro]
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    profiles: [storage, all]
+    environment: { CLICKHOUSE_DB: omnilink, CLICKHOUSE_USER: omnilink, CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD}" }
+    ports: ["8123:8123"]
+    ulimits: { nofile: { soft: 262144, hard: 262144 } }
+    volumes: [ch:/var/lib/clickhouse, ../../storage/clickhouse:/docker-entrypoint-initdb.d:ro]
+  valkey:
+    image: valkey/valkey:8
+    profiles: [storage, all]
+  debezium:
+    image: quay.io/debezium/connect:2.7
+    profiles: [storage, all]
+    depends_on: [kafka, postgres]
+    environment: { BOOTSTRAP_SERVERS: kafka:9092, GROUP_ID: omnilink-connect, CONFIG_STORAGE_TOPIC: connect-configs,
+                   OFFSET_STORAGE_TOPIC: connect-offsets, STATUS_STORAGE_TOPIC: connect-status }
+    ports: ["8083:8083"]
+
+  # ---------------- Layer 5: stream processing ----------------
+  flink-jobmanager:
+    build: { context: ../../processing/flink }
+    image: omnilink/flink:dev
+    profiles: [processing, all]
+    command: jobmanager
+    environment: { FLINK_PROPERTIES: "jobmanager.rpc.address: flink-jobmanager" }
+    ports: ["8081:8081"]
+  flink-taskmanager:
+    image: omnilink/flink:dev
+    profiles: [processing, all]
+    depends_on: [flink-jobmanager]
+    command: taskmanager
+    environment: { FLINK_PROPERTIES: "jobmanager.rpc.address: flink-jobmanager\ntaskmanager.numberOfTaskSlots: 8" }
+
+  # ---------------- Layer 6: platform services ----------------
+  asset-registry:
+    <<: *py
+    profiles: [services, all]
+    depends_on: [postgres]
+    environment: { <<: *pyenv, DATABASE_URL: "postgresql://omnilink:${POSTGRES_PASSWORD}@postgres/omnilink" }
+    command: ["uvicorn", "--factory", "omnilink_services.serve:asset_registry_service", "--host", "0.0.0.0", "--port", "8001"]
+  alarm-service:
+    <<: *py
+    profiles: [services, all]
+    depends_on: [kafka]
+    command: ["uvicorn", "--factory", "omnilink_services.serve:alarm_service", "--host", "0.0.0.0", "--port", "8002"]
+  command-service:
+    <<: *py
+    profiles: [services, all]
+    depends_on: [kafka]
+    command: ["uvicorn", "--factory", "omnilink_services.serve:command_service", "--host", "0.0.0.0", "--port", "8003"]
+
+  # ---------------- Layer 7: workflow automation ----------------
+  temporal:
+    image: temporalio/auto-setup:1.25
+    profiles: [workflow, all]
+    depends_on: [postgres]
+    environment: { DB: postgres12, DB_PORT: "5432", POSTGRES_USER: omnilink, POSTGRES_PWD: "${POSTGRES_PASSWORD}",
+                   POSTGRES_SEEDS: postgres, DEFAULT_NAMESPACE: omnilink }
+    ports: ["7233:7233"]
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    profiles: [workflow, all]
+    environment: { TEMPORAL_ADDRESS: temporal:7233 }
+    ports: ["8088:8080"]
+  workflow-worker:
+    <<: *py
+    profiles: [workflow, all]
+    depends_on: [temporal, kafka]
+    environment: { <<: *pyenv, TEMPORAL_ADDRESS: "temporal:7233", OMNILINK_API: "http://apisix:9080" }
+    command: ["python", "-m", "omnilink_workflows.worker"]
+  node-red:
+    image: nodered/node-red:4.0
+    profiles: [workflow, all]
+    ports: ["1880:1880"]
+    environment: { OMNILINK_API: "http://apisix:9080", OIDC_TOKEN_URL: "http://keycloak:8080/realms/omnilink/protocol/openid-connect/token",
+                   OIDC_CLIENT_ID: omnilink-nodered, OIDC_CLIENT_SECRET: "${NODERED_CLIENT_SECRET}" }
+    volumes: [nodered:/data, ../../workflow/node-red/node-red-contrib-omnilink:/data/node_modules/node-red-contrib-omnilink:ro]
+
+  # ---------------- Layer 8: API and integration ----------------
+  query-api:
+    <<: *py
+    profiles: [api, all]
+    environment: { <<: *pyenv, CLICKHOUSE_URL: "http://clickhouse:8123", CLICKHOUSE_USER: omnilink, CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD}" }
+    command: ["uvicorn", "--factory", "omnilink_services.serve:query_service", "--host", "0.0.0.0", "--port", "8004"]
+  outbound:
+    <<: *py
+    profiles: [api, all]
+    environment: { <<: *pyenv, CENTRIFUGO_API_URL: "http://centrifugo:8000", CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY}" }
+    command: ["uvicorn", "--factory", "omnilink_services.serve:outbound_service", "--host", "0.0.0.0", "--port", "8005"]
+  apisix:
+    image: apache/apisix:3.11.0-debian
+    profiles: [api, all]
+    env_file: .env
+    environment: { OIDC_ISSUER: "http://keycloak:8080/realms/omnilink" }
+    ports: ["9080:9080", "9091:9091"]
+    volumes:
+      - ../../gateway/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ../../gateway/apisix/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    profiles: [api, all]
+    command: ["centrifugo", "--config", "/centrifugo/config.json"]
+    env_file: .env
+    volumes: [../../gateway/centrifugo/config.json:/centrifugo/config.json:ro]
+
+  # ---------------- Layer 9: security and observability ----------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    profiles: [security, all]
+    command: ["start-dev", "--import-realm"]
+    environment: { KC_BOOTSTRAP_ADMIN_USERNAME: admin, KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD}" }
+    ports: ["8080:8080"]
+    volumes: [../../security/keycloak/realm-omnilink.json:/opt/keycloak/data/import/realm-omnilink.json:ro]
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: [observability, all]
+    volumes: [../../observability/prometheus:/etc/prometheus:ro]
+    ports: ["9090:9090"]
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.106.1
+    profiles: [observability, all]
+    command: ["-retentionPeriod=13"]
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    profiles: [observability, all]
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes: [../../observability/otel:/etc/otel:ro]
+  loki:
+    image: grafana/loki:3.3.0
+    profiles: [observability, all]
+  tempo:
+    image: grafana/tempo:2.6.1
+    profiles: [observability, all]
+  grafana:
+    image: grafana/grafana-oss:11.3.1
+    profiles: [observability, all]
+    environment: { GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}" }
+    ports: ["3000:3000"]
+    volumes: [../../observability/grafana/provisioning:/etc/grafana/provisioning:ro]
+
+  # ---------------- Layer 10: AI assistant ----------------
+  ai-db:
+    image: pgvector/pgvector:pg16
+    profiles: [ai, ai-gpu, all]
+    environment: { POSTGRES_DB: knowledge, POSTGRES_USER: omnilink, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}" }
+  assistant:
+    <<: *py
+    profiles: [ai, ai-gpu, all]
+    environment: { <<: *pyenv, OMNILINK_API: "http://apisix:9080" }
+    command: ["uvicorn", "--factory", "omnilink_assistant.app:build_app", "--host", "0.0.0.0", "--port", "8020"]
+  ai-triage:
+    <<: *py
+    profiles: [ai, ai-gpu, all]
+    command: ["python", "-m", "omnilink_assistant.triage_worker"]
+  ollama:
+    image: ollama/ollama:0.5.1
+    profiles: [ai]
+    volumes: [ollama:/root/.ollama]
+  vllm:
+    image: vllm/vllm-openai:v0.6.4
+    profiles: [ai-gpu]
+    command: ["--model", "Qwen/Qwen2.5-32B-Instruct-AWQ", "--enable-auto-tool-choice", "--tool-call-parser", "hermes",
+              "--max-model-len", "32768"]
+    deploy: { resources: { reservations: { devices: [{ driver: nvidia, count: all, capabilities: [gpu] }] } } }
+    volumes: [hf:/root/.cache/huggingface]
+
+  # ---------------- Layer 11: front end ----------------
+  console:
+    build: { context: ../../frontend/console }
+    image: omnilink/console:dev
+    profiles: [frontend, all]
+    environment: { OMNILINK_API_BASE: "http://localhost:9080", OMNILINK_OIDC_ISSUER: "http://localhost:8080/realms/omnilink" }
+    ports: ["4200:8080"]
+
+volumes: { kafka: {}, pg: {}, ch: {}, nodered: {}, ollama: {}, hf: {} }
