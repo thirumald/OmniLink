@@ -135,7 +135,7 @@ def build():
     def pick(path: str):
         if "/commands" in path:
             return apps["command"]
-        for prefix, key in [("/v1/devices", "asset"), ("/v1/entities", "asset"), ("/v1/connectors", "asset"),
+        for prefix, key in [("/v1/devices", "asset"), ("/v1/entities", "asset"), ("/v1/connectors", "asset"), ("/v1/rules", "asset"),
                             ("/v1/alarms", "alarm"), ("/v1/incidents", "alarm"), ("/v1/timeseries", "query"),
                             ("/v1/notify", "outbound"), ("/v1/webhooks", "outbound"), ("/v1/assistant", "assistant")]:
             if path.startswith(prefix):

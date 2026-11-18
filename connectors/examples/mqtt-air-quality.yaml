@@ -2,8 +2,10 @@ connector_id: aq-mqtt
 type: mqtt
 tenant: abudhabi
 settings:
-  host: rabbitmq
+  host: ${MQTT_HOST}
   port: 1883
+  username: ${MQTT_USER}
+  password: ${MQTT_PASSWORD}
   command_topic: city/aq/{device_id}/cmd
 points:
   - point_ref: "city/aq/001#$.pm25"

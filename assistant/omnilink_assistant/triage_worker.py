@@ -10,7 +10,7 @@ from omnilink_contracts import Alarm
 from omnilink_contracts.topics import T
 
 from .llm import OpenAICompatibleLLM
-from .platform import PlatformClient
+from .platform import PlatformClient, service_token
 from .rag import MemoryKnowledgeBase
 from .tools import ToolContext
 from .triage import triage
@@ -37,7 +37,7 @@ async def main() -> None:  # pragma: no cover - integration path
             alarm = Alarm.from_bytes(m.value)
             if not should_triage(alarm):
                 continue
-            ctx = ToolContext(alarm.tenant, "ai-triage", {"viewer"}, PlatformClient(os.environ.get("OMNILINK_SERVICE_TOKEN", "")), kb)
+            ctx = ToolContext(alarm.tenant, "ai-triage", {"viewer"}, PlatformClient(await service_token()), kb)
             s = await triage(llm, ctx, json.loads(alarm.model_dump_json()))
             await producer.send_and_wait(T.AI_SUGGESTIONS, s.model_dump_json().encode(),
                                          key=f"{alarm.tenant}:{alarm.alarm_id}".encode())

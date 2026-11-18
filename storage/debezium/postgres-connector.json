@@ -1,4 +1,5 @@
 {
+  "_comment": "Placeholders are rendered by scripts/bringup.sh from deploy/compose/.env. Production: dedicated replication user + Kafka Connect FileConfigProvider.",
   "name": "omnilink-postgres-cdc",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
@@ -7,21 +8,25 @@
     "slot.name": "omnilink_cdc",
     "database.hostname": "postgres",
     "database.port": "5432",
-    "database.user": "omnilink_cdc",
-    "database.password": "${file:/opt/secrets/cdc.properties:password}",
+    "database.user": "${POSTGRES_USER}",
+    "database.password": "${POSTGRES_PASSWORD}",
     "database.dbname": "omnilink",
     "topic.prefix": "pg",
-    "table.include.list": "public.devices,public.alarm_rules,public.sites",
-    "transforms": "unwrap,route",
+    "table.include.list": "public.devices,public.alarm_rules",
+    "transforms": "unwrap,routeDevices,routeRules",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
     "transforms.unwrap.delete.handling.mode": "rewrite",
-    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-    "transforms.route.regex": "pg\\.public\\.(devices|alarm_rules)",
-    "transforms.route.replacement": "omnilink.cdc.$1.v1",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter.schemas.enable": "false"
+    "value.converter.schemas.enable": "false",
+    "transforms.routeDevices.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.routeDevices.regex": "pg\\.public\\.devices",
+    "transforms.routeDevices.replacement": "omnilink.cdc.devices.v1",
+    "transforms.routeRules.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.routeRules.regex": "pg\\.public\\.alarm_rules",
+    "transforms.routeRules.replacement": "omnilink.cdc.alarm-rules.v1",
+    "decimal.handling.mode": "double"
   }
 }

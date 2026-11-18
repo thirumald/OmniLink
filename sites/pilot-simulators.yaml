@@ -1,0 +1,32 @@
+# Pilot site using the bundled simulators. Copy to sites/<your-site>.yaml for real devices (see sites/template-real-devices.yaml).
+tenant: abudhabi
+connectors:
+  - { id: aq-mqtt, type: mqtt, settings: { host: rabbitmq, port: 1883, username: "${MQTT_USER}", password: "${MQTT_PASSWORD}" } }
+  - { id: pump-sim, type: modbus, poll_interval_s: 5, settings: { host: modbus-sim, port: 5020, unit_id: 1 } }
+devices:
+  - id: aq-001
+    entity_type: AirQualityObserved
+    name: Al Markaziya AQ station (simulated)
+    connector: aq-mqtt
+    site_path: abudhabi.central.markaziya
+    lat: 24.4875
+    lon: 54.3600
+    points:
+      - { point_ref: "city/aq/001#$.pm25", attribute: pm25, unit: ug/m3 }
+      - { point_ref: "city/aq/001#$.no2", attribute: no2, unit: ug/m3 }
+  - id: pump-sim-1
+    entity_type: WaterPump
+    name: Pump station 7 — pump 1 (simulated)
+    connector: pump-sim
+    site_path: abudhabi.mussafah.ps7
+    lat: 24.3540
+    lon: 54.5020
+    points:
+      - { point_ref: "hr:100:float32", attribute: flowRate, unit: L/s, source_unit: gal/min, deadband: 0.2 }
+      - { point_ref: "ir:200:uint16", attribute: pressure, unit: kPa, scale: 0.1 }
+      - { point_ref: "co:1:bool", attribute: running }
+rules:
+  - { id: pm25-high, name: PM2.5 high, entity_type: AirQualityObserved, attribute: pm25, condition: gt, threshold: 55,
+      hysteresis: 5, priority: 2, message: "PM2.5 above 55 µg/m³" }
+  - { id: pump-pressure-low, name: Pump pressure low, entity_type: WaterPump, attribute: pressure, condition: lt,
+      threshold: 250, hysteresis: 10, priority: 1, message: "Pump discharge pressure low" }

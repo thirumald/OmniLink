@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +38,8 @@ class ConnectorConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> ConnectorConfig:
-        return cls.model_validate(yaml.safe_load(Path(path).read_text()))
+        # ${VAR} references are expanded from the environment, so secrets never live in the YAML
+        return cls.model_validate(yaml.safe_load(os.path.expandvars(Path(path).read_text())))
 
     def point_index(self) -> dict[str, PointMap]:
         return {p.point_ref: p for p in self.points}

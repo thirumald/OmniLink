@@ -79,6 +79,8 @@ routes:
   - /v1/devices/*
   - /v1/entities/*
   - /v1/connectors/*
+  - /v1/rules
+  - /v1/rules/*
   upstream_id: asset-registry
   plugins:
     prometheus: *id001

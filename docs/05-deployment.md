@@ -10,6 +10,8 @@
 
 ## Docker Compose: bring it up layer by layer
 
+Use `scripts/bringup.sh` — it runs the steps below with verification after each one. The full procedure, including the first real devices, is in [07 — Bring-up runbook](07-bring-up-runbook.md). Manual equivalent:
+
 ```bash
 cd deploy/compose && cp .env.example .env    # change every secret
 docker compose --profile backbone up -d       # L1 Kafka, Apicurio, topics

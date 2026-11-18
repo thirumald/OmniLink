@@ -69,7 +69,8 @@ async def run() -> None:  # pragma: no cover - integration path
                     protocol=mqtt.MQTTv5, manual_ack=True)
     if os.environ.get("MQTT_USER"):
         c.username_pw_set(os.environ["MQTT_USER"], os.environ.get("MQTT_PASSWORD"))
-    c.on_connect = lambda cl, *_: cl.subscribe("$share/uplink/omnilink/v1/#", qos=1)
+    topic = os.environ.get("MQTT_SUBSCRIBE", "omnilink/v1/#")  # "$share/uplink/omnilink/v1/#" on brokers with shared subs
+    c.on_connect = lambda cl, *_: cl.subscribe(topic, qos=1)
     c.on_message = lambda cl, _u, msg: loop.call_soon_threadsafe(queue.put_nowait, msg)
     c.connect(os.environ.get("MQTT_HOST", "rabbitmq"), int(os.environ.get("MQTT_PORT", "1883")))
     c.loop_start()

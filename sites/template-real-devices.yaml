@@ -1,0 +1,57 @@
+# Template for the first real devices. Fill in the CHANGE-ME values from the device survey (docs/07-bring-up-runbook.md §4).
+# Secrets: reference environment variables (${VAR}); never type passwords into this file.
+tenant: abudhabi
+
+connectors:
+  - id: onvif-site01               # ONVIF cameras: metadata, events, PTZ (video stays on the VMS)
+    type: onvif
+    settings:
+      cameras:
+        - { device_id: cam-site01-01, host: 10.10.1.21, port: 80, username: "${ONVIF_USER}", password: "${ONVIF_PASSWORD}" }
+  - id: bms-site01                 # BACnet/IP controller (run this connector with host networking for Who-Is broadcasts)
+    type: bacnet
+    poll_interval_s: 10
+    settings: { address: 10.20.1.10/24, device_address: 10.20.1.15, device_instance: 1201 }
+  - id: meter-site01               # Modbus TCP energy meter / PLC
+    type: modbus
+    poll_interval_s: 10
+    settings: { host: 10.30.1.50, port: 502, unit_id: 1 }
+  - id: switch-site01              # SNMPv3 network switch (device health), also NTCIP field devices
+    type: snmp
+    poll_interval_s: 30
+    settings: { host: 10.0.0.2, version: "3", user: "${SNMP_USER}", auth_key: "${SNMP_AUTH}", priv_key: "${SNMP_PRIV}" }
+
+devices:
+  - id: cam-site01-01
+    entity_type: Camera
+    name: Site 01 entrance PTZ          # CHANGE-ME
+    connector: onvif-site01
+    lat: 24.4539                        # CHANGE-ME
+    lon: 54.3773
+    attributes: { ptz: true, vendor_model: CHANGE-ME }
+    points: [{ point_ref: "cam-site01-01:online", attribute: online }]
+  - id: ahu-01
+    entity_type: AirHandlingUnit
+    name: Building A AHU 01
+    connector: bms-site01
+    points:
+      - { point_ref: "analogInput:3:presentValue", attribute: supplyAirTemperature, unit: Cel, source_unit: degF, deadband: 0.2 }
+      - { point_ref: "analogValue:12:presentValue", attribute: supplyAirSetpoint, unit: Cel, writable: true }
+      - { point_ref: "binaryInput:4:presentValue", attribute: fanRunning }
+  - id: meter-01
+    entity_type: EnergyMeter
+    name: Main LV board meter
+    connector: meter-site01
+    points:
+      - { point_ref: "hr:3000:float32", attribute: activePower, unit: kW }      # CHANGE-ME: from the meter's register map
+      - { point_ref: "hr:3204:float64", attribute: activeEnergy, unit: kW.h }
+  - id: switch-core-01
+    entity_type: NetworkSwitch
+    name: Site 01 core switch
+    connector: switch-site01
+    points:
+      - { point_ref: "1.3.6.1.2.1.1.3.0", attribute: uptime }
+
+rules:
+  - { id: ahu-supply-high, name: AHU supply air high, entity_type: AirHandlingUnit, attribute: supplyAirTemperature,
+      condition: gt, threshold: 18, hysteresis: 0.5, priority: 3, message: "Supply air above 18 °C" }

@@ -30,10 +30,13 @@ make test
 make console-build
 make devstack                       # http://localhost:9080 serves the API and the console
 
-# 3. Full containerised stack, layer by layer
-cp deploy/compose/.env.example deploy/compose/.env
-docker compose -f deploy/compose/docker-compose.yml --profile backbone up -d
-docker compose -f deploy/compose/docker-compose.yml --profile all up -d
+# 3. Full containerised stack, layer by layer, each step verified (see docs/07-bring-up-runbook.md)
+scripts/bringup.sh preflight
+scripts/bringup.sh backbone        # then: security storage connectivity processing services workflow api
+                                   #       observability ai frontend simulators verify   (or: all)
+
+# 4. First real devices
+cp sites/template-real-devices.yaml sites/my-site.yaml && python tools/onboard.py sites/my-site.yaml --dry-run
 ```
 
 ## Documentation
@@ -46,6 +49,7 @@ Start at [docs/README.md](docs/README.md):
 - [Tech stack and licences](docs/04-tech-stack-and-licences.md)
 - [Deployment](docs/05-deployment.md)
 - [Roadmap and status](docs/06-roadmap.md)
+- [Bring-up runbook and first devices](docs/07-bring-up-runbook.md)
 - A specification for each of the 11 layers in [docs/layers/](docs/layers/)
 
 ## Repository layout
@@ -66,4 +70,7 @@ assistant/                Layer 10 AI assistant (agent, triage, workflow generat
 frontend/console          Layer 11 Angular operator console
 deploy/                   Docker Compose (dev/pilot); Kubernetes manifests (planned)
 tools/devstack.py         all services in one process with demo data
+scripts/bringup.sh        layer-by-layer bring-up with verification
+tools/onboard.py, sites/  onboard connectors, devices, points and rules from a site file
+tools/simulators/         MQTT air-quality and Modbus pump simulators
 ```

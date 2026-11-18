@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS omnilink.events_kafka
  severity String, payload String, source_ts String, protocol String)
 ENGINE = Kafka SETTINGS kafka_broker_list = 'kafka:9092', kafka_topic_list = 'omnilink.events.v1',
   kafka_group_name = 'clickhouse-events', kafka_format = 'JSONEachRow',
-  input_format_json_read_objects_as_strings = 1;
+  input_format_json_read_objects_as_strings = 1, input_format_skip_unknown_fields = 1;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS omnilink.events_mv TO omnilink.events AS
 SELECT tenant, device_id, entity_id, event_type, severity,

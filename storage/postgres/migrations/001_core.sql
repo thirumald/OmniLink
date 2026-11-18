@@ -43,6 +43,9 @@ CREATE TABLE devices (
     connector_id text REFERENCES connectors(id),
     vendor       text, model text, firmware text, serial text,
     location     geometry(Point, 4326),
+    site_path    text,                                -- denormalised for CDC consumers (Flink enrichment)
+    lat          double precision GENERATED ALWAYS AS (ST_Y(location)) STORED,
+    lon          double precision GENERATED ALWAYS AS (ST_X(location)) STORED,
     attributes   jsonb NOT NULL DEFAULT '{}',
     status       text NOT NULL DEFAULT 'unknown',
     last_seen    timestamptz,

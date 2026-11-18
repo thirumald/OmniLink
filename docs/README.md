@@ -8,6 +8,7 @@
 | [04 — Tech stack and licences](04-tech-stack-and-licences.md) | Every component, its licence, and its licensed commercial alternative |
 | [05 — Deployment](05-deployment.md) | Dev stack, Docker Compose pilot, Kubernetes production, sizing |
 | [06 — Roadmap and status](06-roadmap.md) | What is built and tested, what is next, release gates |
+| [07 — Bring-up runbook](07-bring-up-runbook.md) | Start the stack layer by layer with verification, prove it with simulators, connect the first real devices |
 
 ## Layer specifications
 

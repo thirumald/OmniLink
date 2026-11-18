@@ -41,7 +41,8 @@ SETTINGS kafka_broker_list = 'kafka:9092',
          kafka_group_name = 'clickhouse-telemetry',
          kafka_format = 'JSONEachRow',
          kafka_num_consumers = 4,
-         kafka_handle_error_mode = 'stream';
+         kafka_handle_error_mode = 'stream',
+         input_format_skip_unknown_fields = 1;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS omnilink.telemetry_mv TO omnilink.telemetry AS
 SELECT

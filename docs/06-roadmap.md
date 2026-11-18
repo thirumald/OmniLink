@@ -16,6 +16,10 @@
 | 10 AI assistant | Agent with approval gate, role-scoped tools, injection filtering, triage, workflow generator, RAG, MCP server | Scripted-LLM tests | pgvector persistence, red-team suite, evals with Langfuse |
 | 11 Front end | Angular console: dashboard, map, devices, alarms + AI triage, commands, automation, integrations, assistant, EN/AR | `ng build`, unit tests, rendered against devstack | Accessibility audit, map clustering, e2e tests |
 
+## Bring-up tooling (added)
+
+`scripts/bringup.sh` (layer-by-layer with checks), `tools/onboard.py` + `sites/` (site files), `tools/keycloak_setup.py`, `tools/render_template.py`, and simulators in `tools/simulators/`. Verified here: the Modbus adapter against the Modbus simulator over real TCP (unit conversion, scaling, coil), and the MQTT adapter against a broker with the AQ simulator, with the rule firing on the spike. The full container bring-up still has to run on a Docker host (this build environment cannot pull images).
+
 ## Delivery phases (12 months)
 
 | Phase | Months | Scope | Gate |

@@ -40,8 +40,10 @@ class Principal:
 def _jwks_client():
     import jwt
 
+    # OIDC_ISSUER is the public issuer in tokens; OIDC_JWKS_URL lets containers fetch keys on the internal network
     issuer = os.environ["OIDC_ISSUER"]  # e.g. https://sso.omnilink.local/realms/omnilink
-    return jwt.PyJWKClient(f"{issuer}/protocol/openid-connect/certs", cache_keys=True, lifespan=600)
+    url = os.environ.get("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
+    return jwt.PyJWKClient(url, cache_keys=True, lifespan=600)
 
 
 def decode_token(token: str) -> Principal:

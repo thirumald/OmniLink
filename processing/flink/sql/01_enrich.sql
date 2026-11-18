@@ -35,7 +35,8 @@ CREATE TABLE telemetry_enriched (
   'connector' = 'kafka', 'topic' = 'omnilink.telemetry.enriched.v1',
   'properties.bootstrap.servers' = '${KAFKA_BOOTSTRAP}',
   'key.format' = 'raw', 'key.fields' = 'event_id', 'value.format' = 'json',
-  'sink.delivery-guarantee' = 'exactly-once', 'sink.transactional-id-prefix' = 'omnilink-enrich'
+  'sink.delivery-guarantee' = 'exactly-once', 'sink.transactional-id-prefix' = 'omnilink-enrich',
+  'properties.transaction.timeout.ms' = '900000'
 );
 
 INSERT INTO telemetry_enriched

@@ -50,6 +50,18 @@ class PlatformClient:
         return await self._req("POST", "/v1/notify", json=body)
 
 
+async def service_token(client: httpx.AsyncClient | None = None) -> str:
+    """OAuth2 client-credentials token for background workers (triage, MCP)."""
+    url = os.environ.get("OIDC_TOKEN_URL")
+    if not url:
+        return os.environ.get("OMNILINK_SERVICE_TOKEN", "dev")
+    c = client or httpx.AsyncClient(timeout=10)
+    r = await c.post(url, data={"grant_type": "client_credentials", "client_id": os.environ["OIDC_CLIENT_ID"],
+                                "client_secret": os.environ["OIDC_CLIENT_SECRET"]})
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+
 class PlatformError(Exception):
     def __init__(self, status: int, detail: str):
         super().__init__(f"{status}: {detail}")

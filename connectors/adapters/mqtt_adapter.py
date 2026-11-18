@@ -1,4 +1,4 @@
-"""MQTT 3.1.1/5 adapter (also used for LoRaWAN via ChirpStack's MQTT integration).
+"""MQTT 3.1.1/5 adapter (settings.protocol: "5" default or "3.1.1") (also used for LoRaWAN via ChirpStack's MQTT integration).
 
 point_ref: ``<topic>#<json.path>`` e.g. ``city/aq/001#$.pm25`` or ``application/1/device/+/event/up#$.object.temp``.
 Topic wildcards (+, #) are allowed; the matched topic segment for ``+`` is exposed as {device} in device_id.
@@ -74,7 +74,8 @@ class MqttAdapter(Connector):
         s = self.settings
         self._loop = asyncio.get_running_loop()
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=100_000)
-        c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=self.config.connector_id, protocol=mqtt.MQTTv5)
+        proto = mqtt.MQTTv311 if str(s.get("protocol", "5")) in ("3.1.1", "4", "311") else mqtt.MQTTv5
+        c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=self.config.connector_id, protocol=proto)
         if s.get("username"):
             c.username_pw_set(s["username"], s.get("password"))
         if s.get("tls", False):

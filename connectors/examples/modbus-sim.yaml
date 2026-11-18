@@ -1,0 +1,10 @@
+# Points at tools/simulators/modbus_sim.py (compose service modbus-sim). Copy and change host for a real meter/PLC.
+connector_id: pump-sim
+type: modbus
+tenant: abudhabi
+poll_interval_s: 5
+settings: { host: modbus-sim, port: 5020, unit_id: 1 }
+points:
+  - { point_ref: "hr:100:float32", device_id: pump-sim-1, entity_type: WaterPump, attribute: flowRate, unit: L/s, source_unit: gal/min, deadband: 0.2 }
+  - { point_ref: "ir:200:uint16", device_id: pump-sim-1, entity_type: WaterPump, attribute: pressure, unit: kPa, scale: 0.1 }
+  - { point_ref: "co:1:bool", device_id: pump-sim-1, entity_type: WaterPump, attribute: running }

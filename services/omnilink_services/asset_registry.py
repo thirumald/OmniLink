@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 from contextlib import asynccontextmanager
@@ -47,6 +48,21 @@ class PointIn(BaseModel):
     writable: bool = False
 
 
+class AlarmRuleIn(BaseModel):
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{1,63}$")
+    name: str
+    entity_type: str | None = None
+    entity_id: str | None = None
+    attribute: str
+    condition: str = Field(pattern=r"^(gt|gte|lt|lte|eq|ne)$")
+    threshold: float
+    hysteresis: float = 0.0
+    delay_s: int = 0
+    priority: int = Field(ge=1, le=4)
+    message: str
+    enabled: bool = True
+
+
 class ConnectorIn(BaseModel):
     id: str
     type: str
@@ -78,6 +94,7 @@ class MemoryAssetRepo:
         self.devices: dict[tuple[str, str], Device] = {}
         self.connectors: dict[str, dict] = {}
         self.points: dict[str, list[PointIn]] = {}
+        self.rules: dict[tuple[str, str], AlarmRuleIn] = {}
 
     async def upsert_device(self, tenant, d):
         dev = Device(**d.model_dump(), tenant=tenant, entity_id=entity_urn(d.entity_type, tenant, d.id))
@@ -99,6 +116,12 @@ class MemoryAssetRepo:
 
     async def add_points(self, tenant, connector_id, points):
         self.points.setdefault(connector_id, []).extend(points)
+
+    async def upsert_rule(self, tenant, rule):
+        self.rules[(tenant, rule.id)] = rule
+
+    async def list_rules(self, tenant):
+        return [r for (t, _), r in self.rules.items() if t == tenant]
 
     async def connector_config(self, tenant, connector_id):
         c = self.connectors.get(connector_id)
@@ -127,13 +150,14 @@ class PgAssetRepo:  # pragma: no cover - exercised in integration tests against 
         try:
             await conn.execute(
                 """INSERT INTO devices (id, tenant_id, entity_type, name, connector_id, vendor, model, location, attributes,
-                                        site_id)
+                                        site_id, site_path)
                    VALUES ($1,$2,$3,$4,$5,$6,$7,
                            CASE WHEN $8::float8 IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($9, $8), 4326) END, $10,
-                           (SELECT id FROM sites WHERE tenant_id=$2 AND path = $11::ltree))
+                           (SELECT id FROM sites WHERE tenant_id=$2 AND path = $11::ltree), $11)
                    ON CONFLICT (tenant_id, id) DO UPDATE SET entity_type=EXCLUDED.entity_type, name=EXCLUDED.name,
                      connector_id=EXCLUDED.connector_id, vendor=EXCLUDED.vendor, model=EXCLUDED.model,
-                     location=EXCLUDED.location, attributes=EXCLUDED.attributes, site_id=EXCLUDED.site_id, updated_at=now()""",
+                     location=EXCLUDED.location, attributes=EXCLUDED.attributes, site_id=EXCLUDED.site_id,
+                     site_path=EXCLUDED.site_path, updated_at=now()""",
                 d.id, tenant, d.entity_type, d.name, d.connector_id, d.vendor, d.model, d.lat, d.lon, d.attributes,
                 d.site_path)
         finally:
@@ -161,9 +185,7 @@ class PgAssetRepo:  # pragma: no cover - exercised in integration tests against 
         conn = await self._conn(tenant)
         try:
             rows = await conn.fetch(
-                f"""SELECT d.*, ST_Y(d.location) lat, ST_X(d.location) lon, s.path::text site_path
-                    FROM devices d LEFT JOIN sites s ON s.id = d.site_id
-                    {where.replace('$2', '$2')} AND d.tenant_id = $1 ORDER BY {order} LIMIT {int(limit)}""",
+                f"""SELECT d.* FROM devices d {where} AND d.tenant_id = $1 ORDER BY {order} LIMIT {int(limit)}""",
                 tenant, *args)
         finally:
             await self.pool.release(conn)
@@ -196,6 +218,29 @@ class PgAssetRepo:  # pragma: no cover - exercised in integration tests against 
         finally:
             await self.pool.release(conn)
 
+    async def upsert_rule(self, tenant, rule):
+        conn = await self._conn(tenant)
+        try:
+            await conn.execute(
+                """INSERT INTO alarm_rules (id, tenant_id, name, entity_type, entity_id, attribute, condition, threshold,
+                   hysteresis, delay_s, priority, message, enabled) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                   ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, entity_type=EXCLUDED.entity_type,
+                   entity_id=EXCLUDED.entity_id, attribute=EXCLUDED.attribute, condition=EXCLUDED.condition,
+                   threshold=EXCLUDED.threshold, hysteresis=EXCLUDED.hysteresis, delay_s=EXCLUDED.delay_s,
+                   priority=EXCLUDED.priority, message=EXCLUDED.message, enabled=EXCLUDED.enabled, updated_at=now()""",
+                rule.id, tenant, rule.name, rule.entity_type, rule.entity_id, rule.attribute, rule.condition,
+                rule.threshold, rule.hysteresis, rule.delay_s, rule.priority, rule.message, rule.enabled)
+        finally:
+            await self.pool.release(conn)
+
+    async def list_rules(self, tenant):
+        conn = await self._conn(tenant)
+        try:
+            rows = await conn.fetch("SELECT * FROM alarm_rules WHERE tenant_id=$1 ORDER BY id", tenant)
+        finally:
+            await self.pool.release(conn)
+        return [AlarmRuleIn(**{k: r[k] for k in AlarmRuleIn.model_fields}) for r in rows]
+
     async def connector_config(self, tenant, connector_id):
         conn = await self._conn(tenant)
         try:
@@ -220,7 +265,11 @@ def build_app(repo: AssetRepo | None = None):
         if state["repo"] is None:
             import asyncpg
 
-            pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=2, max_size=20)
+            async def init(conn):
+                for t in ("json", "jsonb"):
+                    await conn.set_type_codec(t, encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
+
+            pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=2, max_size=20, init=init)
             state["repo"] = PgAssetRepo(pool)
         yield
 
@@ -272,6 +321,18 @@ def build_app(repo: AssetRepo | None = None):
     @app.post("/v1/connectors/{connector_id}/points", status_code=204)
     async def add_points(connector_id: str, points: list[PointIn], p: Principal = Depends(require("integrator"))):
         await r().add_points(p.tenant, connector_id, points)
+
+    @app.put("/v1/rules/{rule_id}", status_code=204)
+    async def put_rule(rule_id: str, rule: AlarmRuleIn, p: Principal = Depends(require("integrator"))):
+        if rule.id != rule_id:
+            raise HTTPException(400, "id mismatch")
+        if not rule.entity_type and not rule.entity_id:
+            raise HTTPException(400, "entity_type or entity_id required")
+        await r().upsert_rule(p.tenant, rule)
+
+    @app.get("/v1/rules", response_model=list[AlarmRuleIn])
+    async def list_rules(p: Principal = Depends(require("viewer"))):
+        return await r().list_rules(p.tenant)
 
     @app.get("/v1/connectors/{connector_id}/config")
     async def connector_config(connector_id: str, p: Principal = Depends(require("integrator"))):
